@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Cotizador PRO</title>
+
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="db.js"></script>
+<script src="app.js" defer></script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- Logo -->
+<div class="logo-section">
+    <img id="logoPreview" src="" alt="Logo" style="display:none; max-height:80px; margin-bottom:10px;">
+    <input type="file" id="logoInput" accept="image/*" onchange="cargarLogo()">
+    <button onclick="guardarLogo()">Guardar Logo</button>
+    <button onclick="borrarLogo()">Borrar</button>
+</div>
+
+<div class="card">
+<h3>Empresa</h3>
+<div class="grid">
+<input id="empresaNombre" placeholder="Nombre">
+<input id="empresaRut" placeholder="RUT">
+<input id="empresaDireccion" placeholder="Dirección">
+<input id="empresaTelefono" placeholder="Teléfono">
+</div>
+<br>
+<button onclick="guardarEmpresa()">Guardar Empresa</button>
+<button onclick="cargarEmpresa()">Cargar</button>
+</div>
+
+<div class="card">
+<h3>Cliente</h3>
+<div class="grid">
+<input id="clienteNombre" placeholder="Nombre">
+<input id="clienteRut" placeholder="RUT">
+<input id="clienteDireccion" placeholder="Dirección">
+<input id="clienteCorreo" placeholder="Correo">
+</div>
+<br>
+<button onclick="guardarCliente()">Guardar Cliente</button>
+<button onclick="mostrarClientes()">Mis Clientes</button>
+</div>
+
+<div class="card">
+<h3>Proyecto</h3>
+<div class="grid">
+<input id="folio" readonly>
+<input id="fecha" readonly>
+<input id="proyectoNombre" placeholder="Nombre del Proyecto">
+<input id="proyectoCodigo" placeholder="Código">
+</div>
+<br>
+<button onclick="guardarProyecto()">Guardar</button>
+<button onclick="cargarProyecto()">Cargar</button>
+</div>
+
+<div class="card">
+<h3>Productos</h3>
+
+<div class="grid">
+<input id="nombre" placeholder="Producto">
+<input id="cantidad" type="number" placeholder="Cantidad">
+<input id="precio" placeholder="Precio">
+</div>
+
+<br>
+<button onclick="agregarProducto()">Agregar</button>
+
+<table>
+<thead>
+<tr>
+<th>Producto</th>
+<th>Cant</th>
+<th>Precio</th>
+<th>Subtotal</th>
+<th>Acción</th>
+</tr>
+</thead>
+<tbody id="detalle"></tbody>
+</table>
+
+<div class="total">
+Total Neto: $<span id="total">0</span>
+</div>
+
+<br>
+<button onclick="generarPDF()">Descargar PDF</button>
+
+</div>
+
+</div>
+
+</body>
+</html>

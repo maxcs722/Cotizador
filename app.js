@@ -112,55 +112,198 @@ function render(){
 function generarPDF(){
 
     let doc = new jsPDF();
+    let pageWidth = doc.internal.pageSize.getWidth();
 
+    // Datos
     let empresaNombre = document.getElementById("empresaNombre").value;
+    let empresaRut = document.getElementById("empresaRut").value;
+    let empresaDireccion = document.getElementById("empresaDireccion").value;
+    let empresaTelefono = document.getElementById("empresaTelefono").value;
+    
     let clienteNombre = document.getElementById("clienteNombre").value;
+    let clienteRut = document.getElementById("clienteRut").value;
+    let clienteDireccion = document.getElementById("clienteDireccion").value;
+    let clienteCorreo = document.getElementById("clienteCorreo").value;
+    
+    let proyectoNombre = document.getElementById("proyectoNombre").value;
     let proyectoCodigo = document.getElementById("proyectoCodigo").value;
 
-    let y = 15;
+    let y = 20;
+    let margen = 15;
+    let anchoUtil = pageWidth - (margen * 2);
 
-    // Logo en PDF
+    // ===== ENCABEZADO =====
+    // Logo
     const logoImg = localStorage.getItem("cotizador_logo");
     if (logoImg) {
         try {
-            doc.addImage(logoImg, 'JPEG', 10, 10, 30, 30);
+            doc.addImage(logoImg, 'PNG', margen, y, 25, 25);
         } catch(e) {
-            // Si falla, usar formato PNG
-            doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
+            try {
+                doc.addImage(logoImg, 'JPEG', margen, y, 25, 25);
+            } catch(e2) {}
         }
     }
 
-    doc.setFontSize(16);
-    doc.text(empresaNombre || "Empresa", 50, y);
-
-    doc.setFontSize(14);
-    doc.text("COTIZACIÓN", 140, 15);
-
+    // Título cotizador
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("COTIZACIÓN", pageWidth - margen, y + 5, { align: "right" });
+    
     doc.setFontSize(10);
-    doc.text("Folio: " + folio, 140, 22);
-    doc.text("Fecha: " + fechaInput.value, 140, 27);
-    doc.text("Proyecto: " + proyectoCodigo, 140, 32);
+    doc.setFont("helvetica", "normal");
+    doc.text("Folio: " + folio, pageWidth - margen, y + 12, { align: "right" });
+    doc.text("Fecha: " + fechaInput.value, pageWidth - margen, y + 17, { align: "right" });
+
+    y += 35;
+
+    // ===== DATOS EMPRESA =====
+    doc.setFillColor(240, 240, 245);
+    doc.rect(margen, y, anchoUtil, 25, "F");
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("DE:", margen, y + 7);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(empresaNombre || "Empresa", margen, y + 13);
+    if (empresaRut) doc.text("RUT: " + empresaRut, margen, y + 18);
+    if (empresaDireccion) doc.text(empresaDireccion, 80, y + 13);
+    if (empresaTelefono) doc.text("Tel: " + empresaTelefono, 80, y + 18);
+
+    y += 30;
+
+    // ===== DATOS CLIENTE/PROYECTO =====
+    doc.setFillColor(245, 245, 250);
+    doc.rect(margen, y, anchoUtil, 25, "F");
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("PARA:", margen, y + 7);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(clienteNombre || "Cliente", margen, y + 13);
+    if (clienteRut) doc.text("RUT: " + clienteRut, margen, y + 18);
+    if (clienteDireccion) doc.text(clienteDireccion, 80, y + 13);
+    if (clienteCorreo) doc.text("Correo: " + clienteCorreo, 80, y + 18);
+
+    y += 30;
+
+    // ===== PROYECTO =====
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Proyecto:", margen, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(proyectoNombre || "Sin nombre", margen + 20, y);
+    
+    doc.text("Código:", 120, y);
+    doc.text(proyectoCodigo || "-", 145, y);
 
     y += 15;
-    let proyectoNombre = document.getElementById("proyectoNombre").value;
-    doc.text("Proyecto: " + (proyectoNombre || "Sin nombre"), 10, y);
 
-    y += 10;
+    // ===== TABLA PRODUCTOS =====
+    // Encabezado tabla
+    doc.setFillColor(50, 50, 80);
+    doc.rect(margen, y, anchoUtil, 8, "F");
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Descripción", margen + 3, y + 5.5);
+    doc.text("Cant.", margen + 110, y + 5.5);
+    doc.text("Precio", margen + 130, y + 5.5);
+    doc.text("Subtotal", margen + 160, y + 5.5);
+    
+    doc.setTextColor(0, 0, 0);
+    y += 8;
 
-    productos.forEach(p=>{
-        doc.text(p.n, 10, y);
-        doc.text(String(p.c), 90, y);
-        doc.text("$"+formatoCLP(p.p), 110, y);
-        doc.text("$"+formatoCLP(p.sub), 150, y);
-        y += 6;
+    // Filas productos
+    doc.setFont("helvetica", "normal");
+    let total = 0;
+    
+    productos.forEach((p, i) => {
+        total += p.sub;
+        
+        if (i % 2 === 0) {
+            doc.setFillColor(248, 248, 250);
+            doc.rect(margen, y, anchoUtil, 7, "F");
+        }
+        
+        doc.setFontSize(8);
+        doc.text(p.n, margen + 3, y + 5);
+        doc.text(String(p.c), margen + 115, y + 5);
+        doc.text("$" + formatoCLP(p.p), margen + 130, y + 5);
+        doc.text("$" + formatoCLP(p.sub), margen + 160, y + 5);
+        
+        y += 7;
     });
 
-    y += 10;
-    doc.setFontSize(13);
-    doc.text("TOTAL NETO: $" + totalSpan.textContent, 140, y);
+    y += 5;
 
-    doc.save("cotizacion_"+folio+".pdf");
+    // ===== TOTAL =====
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margen, y, pageWidth - margen, y);
+    y += 5;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL NETO:", 130, y + 4);
+    doc.setFontSize(14);
+    doc.setTextColor(50, 50, 80);
+    doc.text("$" + totalSpan.textContent, pageWidth - margen, y + 4, { align: "right" });
+    doc.setTextColor(0, 0, 0);
 
+    // ===== SEPARADOR GRIS =====
+    y += 15;
+    doc.setFillColor(230, 230, 230);
+    doc.rect(margen, y, anchoUtil, 2, "F");
+    y += 7;
+
+    // ===== DATOS PARA OC Y BANCARIOS =====
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Datos para OC.", margen, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.text("Razón Social: Brothers Solutions SpA", margen, y);
+    y += 5;
+    doc.text("Rut: 77.504.779-8", margen, y);
+    y += 5;
+    doc.text("Dirección: Av. Bernardo O'higgins 1302 Santiago", margen, y);
+    y += 5;
+    doc.text("Giro: Actividades de Consultoría y Gestión Informática", margen, y);
+    y += 5;
+    doc.text("Email: bsstspa@gmail.com", margen, y);
+    y += 8;
+    doc.setFont("helvetica", "bold");
+    doc.text("Datos Bancarios", margen, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.text("Razón Social: Brothers Solutions SpA", margen, y);
+    y += 5;
+    doc.text("Rut: 77.504.779-8", margen, y);
+    y += 5;
+    doc.text("Banco: Bci", margen, y);
+    y += 5;
+    doc.text("Cuenta Corriente: 70831371", margen, y);
+    y += 8;
+    doc.setFont("helvetica", "bold");
+    doc.text("Todos los valores son neto + IVA", margen, y);
+    y += 5;
+    doc.text("Cotización válida por 10 Días", margen, y + 5);
+
+    // ===== PIE =====
+    y = 270;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "italic");
+    doc.text("Documento generado automáticamente", pageWidth / 2, y, { align: "center" });
+
+    // Guardar
+    let nombreArchivo = "cotizacion_" + folio + "_" + (proyectoNombre ? proyectoNombre.replace(/[^a-zA-Z0-9]/g, "_") : "proyecto");
+    doc.save(nombreArchivo + ".pdf");
+
+    // Incrementar folio
     folio++;
     localStorage.setItem("folio", folio);
     folioInput.value = folio;
@@ -196,29 +339,29 @@ function cargarEmpresa() {
     }
 }
 
-// ===== PROYECTO =====
+// ===== CLIENTE =====
 function guardarCliente() {
-    const proyecto = {
+    const cliente = {
         nombre: document.getElementById("clienteNombre").value,
         rut: document.getElementById("clienteRut").value,
         direccion: document.getElementById("clienteDireccion").value,
         correo: document.getElementById("clienteCorreo").value
     };
     
-    if (!proyecto.nombre || !proyecto.rut) {
-        alert("Ingresa nombre y código del proyecto");
+    if (!cliente.nombre || !cliente.rut) {
+        alert("Ingresa nombre y RUT del cliente");
         return;
     }
     
-    DB.saveCliente(proyecto);
-    alert("Proyecto guardado: " + proyecto.nombre);
+    DB.saveCliente(cliente);
+    alert("Cliente guardado: " + cliente.nombre);
 }
 
 function mostrarClientes() {
     const clientes = DB.getClientes();
     
     if (clientes.length === 0) {
-        alert("No hay clientes guardados");
+        alert("No hay clientes guardados. Guarda uno primero.");
         return;
     }
     
@@ -229,6 +372,8 @@ function mostrarClientes() {
     mensaje += "\nIngresa el número para cargar:";
     
     const opcion = prompt(mensaje);
+    if (!opcion) return;
+    
     const idx = parseInt(opcion) - 1;
     
     if (idx >= 0 && idx < clientes.length) {
@@ -237,6 +382,8 @@ function mostrarClientes() {
         document.getElementById("clienteRut").value = c.rut;
         document.getElementById("clienteDireccion").value = c.direccion || "";
         document.getElementById("clienteCorreo").value = c.correo || "";
+    } else if (!isNaN(idx)) {
+        alert("Número inválido");
     }
 }
 
@@ -271,6 +418,53 @@ function cargarProyecto() {
         document.getElementById("proyectoCodigo").value = proyecto.codigo || "";
     } else {
         alert("No hay proyecto guardado");
+    }
+}
+
+// ===== PRODUCTOS =====
+function guardarProducto() {
+    const nombre = document.getElementById("nombre").value;
+    const precio = parseInt(limpiarNumero(document.getElementById("precio").value));
+    
+    if (!nombre || !precio) {
+        alert("Ingresa nombre y precio del producto");
+        return;
+    }
+    
+    const producto = {
+        nombre: nombre,
+        precio: precio
+    };
+    
+    DB.saveProducto(producto);
+    alert("Producto guardado: " + nombre + " - $" + formatoCLP(precio));
+}
+
+function mostrarProductos() {
+    const productosDB = DB.getProductos();
+    
+    if (productosDB.length === 0) {
+        alert("No hay productos guardados. Guarda uno primero.");
+        return;
+    }
+    
+    let mensaje = "Mis Productos:\n\n";
+    productosDB.forEach((p, i) => {
+        mensaje += `${i + 1}. ${p.nombre} - $${formatoCLP(p.precio)}\n`;
+    });
+    mensaje += "\nIngresa el número para agregar a la cotización:";
+    
+    const opcion = prompt(mensaje);
+    if (!opcion) return;
+    
+    const idx = parseInt(opcion) - 1;
+    
+    if (idx >= 0 && idx < productosDB.length) {
+        const p = productosDB[idx];
+        document.getElementById("nombre").value = p.nombre;
+        document.getElementById("precio").value = formatoCLP(p.precio);
+    } else if (!isNaN(idx)) {
+        alert("Número inválido");
     }
 }
 

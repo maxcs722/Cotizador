@@ -2,9 +2,10 @@
 
 const DB = {
     // Keys para localStorage
-    PROYECTOS_KEY: "cotizador_proyectos",
+    CLIENTES_KEY: "cotizador_clientes",
     PRODUCTOS_KEY: "cotizador_productos",
     EMPRESA_KEY: "cotizador_empresa",
+    PROYECTO_KEY: "cotizador_proyecto_actual",
     
     // ===== EMPRESA (mis datos) =====
     getEmpresa() {
@@ -17,34 +18,34 @@ const DB = {
         return empresa;
     },
     
-    // ===== PROYECTOS =====
+    // ===== CLIENTES =====
     getClientes() {
-        return JSON.parse(localStorage.getItem(this.PROYECTOS_KEY)) || [];
+        return JSON.parse(localStorage.getItem(this.CLIENTES_KEY)) || [];
     },
     
-    saveCliente(proyecto) {
-        const proyectos = this.getClientes();
-        const existente = proyectos.findIndex(p => p.rut === proyecto.rut);
+    saveCliente(cliente) {
+        const clientes = this.getClientes();
+        const existente = clientes.findIndex(c => c.rut === cliente.rut);
         
         if (existente >= 0) {
-            proyectos[existente] = { ...proyecto, updatedAt: new Date().toISOString() };
+            clientes[existente] = { ...cliente, updatedAt: new Date().toISOString() };
         } else {
-            proyecto.id = Date.now();
-            proyecto.createdAt = new Date().toISOString();
-            proyectos.push(proyecto);
+            cliente.id = Date.now();
+            cliente.createdAt = new Date().toISOString();
+            clientes.push(cliente);
         }
         
-        localStorage.setItem(this.PROYECTOS_KEY, JSON.stringify(proyectos));
-        return proyecto;
+        localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(clientes));
+        return cliente;
     },
     
     deleteCliente(rut) {
-        const proyectos = this.getClientes().filter(p => p.rut !== rut);
-        localStorage.setItem(this.PROYECTOS_KEY, JSON.stringify(proyectos));
+        const clientes = this.getClientes().filter(c => c.rut !== rut);
+        localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(clientes));
     },
     
     getClienteByRut(rut) {
-        return this.getClientes().find(p => p.rut === rut);
+        return this.getClientes().find(c => c.rut === rut);
     },
     
     // ===== PRODUCTOS =====

@@ -507,3 +507,59 @@ function borrarLogo() {
     document.getElementById("logoPreview").style.display = "none";
     document.getElementById("logoInput").value = "";
 }
+
+// ===== EXPORTAR/IMPORTAR DATOS =====
+function exportarDatos() {
+    const datos = {
+        clientes: DB.getClientes(),
+        productos: DB.getProductos(),
+        empresa: DB.getEmpresa(),
+        exportedAt: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cotizador_backup_" + new Date().toISOString().split("T")[0] + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    alert("Datos exportados. Sube este archivo a GitHub para respaldarlos.");
+}
+
+function importarDatos() {
+    // Trigger the hidden file input
+    document.getElementById("importFile").click();
+}
+
+function importarDesdeArchivo() {
+    const input = document.getElementById("importFile");
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            if (data.clientes) {
+                localStorage.setItem("cotizador_clientes", JSON.stringify(data.clientes));
+            }
+            if (data.productos) {
+                localStorage.setItem("cotizador_productos", JSON.stringify(data.productos));
+            }
+            if (data.empresa) {
+                localStorage.setItem("cotizador_empresa", JSON.stringify(data.empresa));
+            }
+            alert("Datos importados correctamente.");
+        } catch(error) {
+            alert("Error al leer el archivo: " + error.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset input
+    input.value = "";
+}

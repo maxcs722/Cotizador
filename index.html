@@ -95,6 +95,9 @@ Total Neto: $<span id="total">0</span>
 
 <br>
 <button onclick="generarPDF()">Descargar PDF</button>
+<button onclick="exportarDatos()">Exportar Datos</button>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="importarDesdeArchivo()">
+<button onclick="document.getElementById('importFile').click()">Importar Datos</button>
 
 </div>
 

@@ -98,7 +98,8 @@ const DB = {
     // Exportar datos
     exportData() {
         return {
-            proyectos: this.getClientes(),
+            empresa: this.getEmpresa(),
+            clientes: this.getClientes(),
             productos: this.getProductos(),
             exportedAt: new Date().toISOString()
         };
@@ -106,8 +107,11 @@ const DB = {
     
     // Importar datos
     importData(data) {
-        if (data.proyectos) {
-            localStorage.setItem(this.PROYECTOS_KEY, JSON.stringify(data.proyectos));
+        if (data.empresa) {
+            localStorage.setItem(this.EMPRESA_KEY, JSON.stringify(data.empresa));
+        }
+        if (data.clientes) {
+            localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(data.clientes));
         }
         if (data.productos) {
             localStorage.setItem(this.PRODUCTOS_KEY, JSON.stringify(data.productos));

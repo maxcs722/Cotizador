@@ -203,27 +203,60 @@ function generarPDF(){
     let margen = 15;
     let anchoUtil = pageWidth - (margen * 2);
 
-    // ===== ENCABEZADO =====
-    // Logo
-    const logoImg = localStorage.getItem("cotizador_logo");
-    if (logoImg) {
+    // ===== GUARDAR EN FIREBASE (automático) =====
+    async function guardarEnFirebase() {
         try {
-            doc.addImage(logoImg, 'PNG', margen, y, 25, 25);
+            // 1. Guardar empresa
+            if (empresaNombre) {
+                await DB.saveEmpresa({
+                    nombre: empresaNombre,
+                    rut: empresaRut,
+                    direccion: empresaDireccion,
+                    telefono: empresaTelefono
+                });
+            }
+            
+            // 2. Guardar cliente si tiene datos
+            if (clienteNombre && clienteRut) {
+                await DB.saveCliente({
+                    nombre: clienteNombre,
+                    rut: clienteRut,
+                    direccion: clienteDireccion,
+                    correo: clienteCorreo
+                });
+            }
+            
+            // 3. Guardar productos de la cotización
+            for (const p of productos) {
+                await DB.saveProducto({
+                    nombre: p.n,
+                    precio: p.p,
+                    cantidad: p.c
+                });
+            }
+            
+            // 4. Guardar cotización
+            const total = productos.reduce((sum, p) => sum + p.sub, 0);
+            await DB.saveCotizacion({
+                folio: folio,
+                fecha: new Date().toISOString(),
+                clienteRut: clienteRut,
+                clienteNombre: clienteNombre,
+                proyectoCodigo: proyectoCodigo,
+                proyectoNombre: proyectoNombre,
+                productos: productos,
+                total: total,
+                estado: 'generada'
+            });
+            
+            console.log("✓ Datos guardados en Firebase");
         } catch(e) {
-            try {
-                doc.addImage(logoImg, 'JPEG', margen, y, 25, 25);
-            } catch(e2) {}
+            console.error("Error al guardar en Firebase:", e);
         }
     }
-
-    // Título cotizador
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("COTIZACIÓN", pageWidth - margen, y + 5, { align: "right" });
     
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Folio: " + folio, pageWidth - margen, y + 12, { align: "right" });
+    // Ejecutar guardado en Firebase
+    guardarEnFirebase();
     doc.text("Fecha: " + fechaInput.value, pageWidth - margen, y + 17, { align: "right" });
 
     y += 35;

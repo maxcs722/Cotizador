@@ -460,18 +460,6 @@ async function guardarCliente() {
         return;
     }
     
-    // Validar RUT chileno
-    if (!validarRut(rut)) {
-        alert("RUT inválido. Ingresa un RUT válido (ej: 12345678-9)");
-        return;
-    }
-    
-    // Validar email si se ingresa
-    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-        alert("Correo electrónico inválido");
-        return;
-    }
-    
     const cliente = {
         nombre: nombre,
         rut: rut,

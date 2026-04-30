@@ -9,6 +9,49 @@ function limpiarNumero(str){
     return str.replace(/\./g,'');
 }
 
+// ===== SANITIZACIÓN (seguridad XSS) =====
+function sanitizarHTML(str) {
+    if (!str) return "";
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ===== VALIDACIÓN RUT CHILENO =====
+function validarRut(rut) {
+    if (!rut) return false;
+    rut = rut.replace(/[^0-9kK-]/g, '');
+    if (rut.length < 2) return false;
+    
+    const cuerpo = rut.slice(0, -1);
+    const dv = rut.slice(-1).toLowerCase();
+    
+    let suma = 0;
+    let multiplo = 2;
+    
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+        suma += parseInt(cuerpo[i]) * multiplo;
+        multiplo = multiplo === 7 ? 2 : multiplo + 1;
+    }
+    
+    const dvCalculado = 11 - (suma % 11);
+    const dvString = dvCalculado === 11 ? '0' : dvCalculado === 10 ? 'k' : String(dvCalculado);
+    
+    return dv === dvString;
+}
+
+function formatearRut(input) {
+    let rut = input.value.replace(/[^0-9kK]/g, '');
+    if (rut.length > 1) {
+        let cuerpo = rut.slice(0, -1);
+        let dv = rut.slice(-1);
+        cuerpo = cuerpo.replace(/(\d)(?=(\d))/g, '$1.');
+        input.value = cuerpo + '-' + dv;
+    } else {
+        input.value = rut;
+    }
+}
+
 // ===== STATE =====
 let productos = [];
 let folio = parseInt(localStorage.getItem("folio")) || 1;
@@ -35,14 +78,16 @@ cargarLogoGuardado();
 let proyectoFolio = parseInt(localStorage.getItem("proyectoFolio")) || 1;
 document.getElementById("proyectoCodigo").value = "PROY-" + proyectoFolio.toString().padStart(4, "0");
 
-// Cargar datos de empresa guardados
-const empresaGuardada = DB.getEmpresa();
-if (empresaGuardada) {
-    document.getElementById("empresaNombre").value = empresaGuardada.nombre || "";
-    document.getElementById("empresaRut").value = empresaGuardada.rut || "";
-    document.getElementById("empresaDireccion").value = empresaGuardada.direccion || "";
-    document.getElementById("empresaTelefono").value = empresaGuardada.telefono || "";
-}
+// Cargar datos de empresa guardados (async)
+(async () => {
+    const empresaGuardada = await DB.getEmpresa();
+    if (empresaGuardada) {
+        document.getElementById("empresaNombre").value = empresaGuardada.nombre || "";
+        document.getElementById("empresaRut").value = empresaGuardada.rut || "";
+        document.getElementById("empresaDireccion").value = empresaGuardada.direccion || "";
+        document.getElementById("empresaTelefono").value = empresaGuardada.telefono || "";
+    }
+})();
 
 // Guardar empresa cuando cambie algún campo
 ["empresaNombre", "empresaRut", "empresaDireccion", "empresaTelefono"].forEach(id => {
@@ -56,6 +101,15 @@ if (empresaGuardada) {
     });
 });
 
+// Auto-formatear RUT al escribir
+document.getElementById("clienteRut").addEventListener("input", function(e) {
+    formatearRut(e.target);
+});
+
+document.getElementById("empresaRut").addEventListener("input", function(e) {
+    formatearRut(e.target);
+});
+
 // ===== FORMATO PRECIO =====
 precioInput.addEventListener("input", e=>{
     let valor = limpiarNumero(e.target.value);
@@ -64,12 +118,23 @@ precioInput.addEventListener("input", e=>{
 
 // ===== ADD =====
 function agregarProducto(){
-    let n = nombreInput.value;
+    let n = nombreInput.value.trim();
     let c = parseInt(cantidadInput.value);
     let p = parseInt(limpiarNumero(precioInput.value));
 
+    // Validaciones
     if(!n || !c || !p){
-        alert("Completa todo");
+        alert("Completa todos los campos");
+        return;
+    }
+    
+    if(c < 1){
+        alert("La cantidad debe ser al menos 1");
+        return;
+    }
+    
+    if(p < 0){
+        alert("El precio no puede ser negativo");
         return;
     }
 
@@ -94,18 +159,24 @@ function render(){
 
     productos.forEach((p,i)=>{
         total += p.sub;
+        // Sanitizar datos antes de insertar en HTML
+        const nombreSeg = sanitizarHTML(p.n);
+        const cantidadSeg = sanitizarHTML(String(p.c));
+        const precioSeg = sanitizarHTML(formatoCLP(p.p));
+        const subtotalSeg = sanitizarHTML(formatoCLP(p.sub));
+        
         html += `
         <tr>
-            <td>${p.n}</td>
-            <td>${p.c}</td>
-            <td>$${formatoCLP(p.p)}</td>
-            <td>$${formatoCLP(p.sub)}</td>
+            <td>${nombreSeg}</td>
+            <td>${cantidadSeg}</td>
+            <td>$${precioSeg}</td>
+            <td>$${subtotalSeg}</td>
             <td><button onclick="eliminar(${i})">X</button></td>
         </tr>`;
     });
 
     detalle.innerHTML = html;
-    totalSpan.textContent = formatoCLP(total);
+    if (totalSpan) totalSpan.textContent = formatoCLP(total);
 }
 
 // ===== PDF =====
@@ -310,7 +381,7 @@ function generarPDF(){
 }
 
 // ===== EMPRESA =====
-function guardarEmpresa() {
+async function guardarEmpresa() {
     const empresa = {
         nombre: document.getElementById("empresaNombre").value,
         rut: document.getElementById("empresaRut").value,
@@ -323,12 +394,12 @@ function guardarEmpresa() {
         return;
     }
     
-    DB.saveEmpresa(empresa);
+    await DB.saveEmpresa(empresa);
     alert("Empresa guardada: " + empresa.nombre);
 }
 
-function cargarEmpresa() {
-    const empresa = DB.getEmpresa();
+async function cargarEmpresa() {
+    const empresa = await DB.getEmpresa();
     if (empresa) {
         document.getElementById("empresaNombre").value = empresa.nombre || "";
         document.getElementById("empresaRut").value = empresa.rut || "";
@@ -340,25 +411,42 @@ function cargarEmpresa() {
 }
 
 // ===== CLIENTE =====
-function guardarCliente() {
-    const cliente = {
-        nombre: document.getElementById("clienteNombre").value,
-        rut: document.getElementById("clienteRut").value,
-        direccion: document.getElementById("clienteDireccion").value,
-        correo: document.getElementById("clienteCorreo").value
-    };
+async function guardarCliente() {
+    const nombre = document.getElementById("clienteNombre").value.trim();
+    const rut = document.getElementById("clienteRut").value.trim();
+    const direccion = document.getElementById("clienteDireccion").value.trim();
+    const correo = document.getElementById("clienteCorreo").value.trim();
     
-    if (!cliente.nombre || !cliente.rut) {
+    if (!nombre || !rut) {
         alert("Ingresa nombre y RUT del cliente");
         return;
     }
     
-    DB.saveCliente(cliente);
-    alert("Cliente guardado: " + cliente.nombre);
+    // Validar RUT chileno
+    if (!validarRut(rut)) {
+        alert("RUT inválido. Ingresa un RUT válido (ej: 12345678-9)");
+        return;
+    }
+    
+    // Validar email si se ingresa
+    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+        alert("Correo electrónico inválido");
+        return;
+    }
+    
+    const cliente = {
+        nombre: nombre,
+        rut: rut,
+        direccion: direccion,
+        correo: correo
+    };
+    
+    await DB.saveCliente(cliente);
+    alert("Cliente guardado: " + nombre);
 }
 
-function mostrarClientes() {
-    const clientes = DB.getClientes();
+async function mostrarClientes() {
+    const clientes = await DB.getClientes();
     
     if (clientes.length === 0) {
         alert("No hay clientes guardados. Guarda uno primero.");
@@ -422,8 +510,8 @@ function cargarProyecto() {
 }
 
 // ===== PRODUCTOS =====
-function guardarProducto() {
-    const nombre = document.getElementById("nombre").value;
+async function guardarProducto() {
+    const nombre = document.getElementById("nombre").value.trim();
     const precio = parseInt(limpiarNumero(document.getElementById("precio").value));
     
     if (!nombre || !precio) {
@@ -436,12 +524,12 @@ function guardarProducto() {
         precio: precio
     };
     
-    DB.saveProducto(producto);
+    await DB.saveProducto(producto);
     alert("Producto guardado: " + nombre + " - $" + formatoCLP(precio));
 }
 
-function mostrarProductos() {
-    const productosDB = DB.getProductos();
+async function mostrarProductos() {
+    const productosDB = await DB.getProductos();
     
     if (productosDB.length === 0) {
         alert("No hay productos guardados. Guarda uno primero.");
@@ -474,18 +562,39 @@ function cargarLogo() {
     const preview = document.getElementById("logoPreview");
     
     if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Validar tamaño (max 500KB para localStorage)
+        if (file.size > 500 * 1024) {
+            alert("La imagen es muy grande. Máximo 500KB.");
+            input.value = "";
+            return;
+        }
+        
+        // Validar tipo
+        if (!file.type.match(/image\/(jpeg|png|gif|webp)/)) {
+            alert("Formato no válido. Usa JPG, PNG, GIF o WebP.");
+            input.value = "";
+            return;
+        }
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             preview.src = e.target.result;
             preview.style.display = "block";
         };
-        reader.readAsDataURL(input.files[0]);
+        reader.readAsDataURL(file);
     }
 }
 
 function guardarLogo() {
     const preview = document.getElementById("logoPreview");
     if (preview.src && preview.style.display !== "none") {
+        // Verificar tamaño antes de guardar
+        if (preview.src.length > 5 * 1024 * 1024) {
+            alert("La imagen es muy grande para guardar en el navegador.");
+            return;
+        }
         localStorage.setItem("cotizador_logo", preview.src);
         alert("Logo guardado");
     } else {
@@ -509,13 +618,8 @@ function borrarLogo() {
 }
 
 // ===== EXPORTAR/IMPORTAR DATOS =====
-function exportarDatos() {
-    const datos = {
-        clientes: DB.getClientes(),
-        productos: DB.getProductos(),
-        empresa: DB.getEmpresa(),
-        exportedAt: new Date().toISOString()
-    };
+async function exportarDatos() {
+    const datos = await DB.exportData();
     
     const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -528,31 +632,23 @@ function exportarDatos() {
     alert("Datos exportados. Sube este archivo a GitHub para respaldarlos.");
 }
 
-function importarDatos() {
-    // Trigger the hidden file input
-    document.getElementById("importFile").click();
-}
-
-function importarDesdeArchivo() {
+async function importarDesdeArchivo() {
     const input = document.getElementById("importFile");
     const file = input.files[0];
     
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const data = JSON.parse(e.target.result);
             
-            if (data.clientes) {
-                localStorage.setItem("cotizador_clientes", JSON.stringify(data.clientes));
+            // Validar estructura básica
+            if (typeof data !== 'object' || data === null) {
+                throw new Error("Formato de archivo inválido");
             }
-            if (data.productos) {
-                localStorage.setItem("cotizador_productos", JSON.stringify(data.productos));
-            }
-            if (data.empresa) {
-                localStorage.setItem("cotizador_empresa", JSON.stringify(data.empresa));
-            }
+            
+            await DB.importData(data);
             alert("Datos importados correctamente.");
         } catch(error) {
             alert("Error al leer el archivo: " + error.message);

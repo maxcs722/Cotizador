@@ -1,123 +1,256 @@
-// ===== BASE DE DATOS LOCAL (localStorage) =====
+// ===== BASE DE DATOS FIREBASE (Firestore) =====
+// Configuración de Firebase - REEMPLAZA con tu config
 
+const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_PROYECTO.firebaseapp.com",
+    projectId: "TU_PROYECTO",
+    storageBucket: "TU_PROYECTO.appspot.com",
+    messagingSenderId: "TU_SENDER_ID",
+    appId: "TU_APP_ID"
+};
+
+// Inicializar Firebase (solo si está configurado)
+let db = null;
+let app = null;
+let firebaseInicializado = false;
+
+async function initFirebase() {
+    if (firebaseInicializado) return;
+    
+    // Verificar que config no sea la默认值
+    if (firebaseConfig.apiKey === "TU_API_KEY") {
+        console.warn("Firebase no configurado. Usando localStorage.");
+        return;
+    }
+    
+    try {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+        const { getFirestore, getDocs, doc, setDoc, deleteDoc, collection, query, where } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        firebaseInicializado = true;
+        console.log("Firebase conectado");
+    } catch(e) {
+        console.error("Error al inicializar Firebase:", e);
+    }
+}
+
+// ===== BASE DE DATOS CON FALLBACK =====
 const DB = {
-    // Keys para localStorage
+    modo: "local", // "firebase" o "local"
+    
+    // Keys para localStorage (fallback)
     CLIENTES_KEY: "cotizador_clientes",
     PRODUCTOS_KEY: "cotizador_productos",
     EMPRESA_KEY: "cotizador_empresa",
     PROYECTO_KEY: "cotizador_proyecto_actual",
     
-    // ===== EMPRESA (mis datos) =====
-    getEmpresa() {
-        return JSON.parse(localStorage.getItem(this.EMPRESA_KEY)) || null;
+    // ===== FIREBASE: Métodos async =====
+    async _getFromFirebase(collectionName) {
+        if (!db) return null;
+        try {
+            const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+            const snapshot = await getDocs(collection(db, collectionName));
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch(e) {
+            console.error("Error Firebase:", e);
+            return null;
+        }
     },
     
-    saveEmpresa(empresa) {
+    async _saveToFirebase(collectionName, data, idField) {
+        if (!db) return false;
+        try {
+            const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+            const id = data[idField] || data.id || Date.now().toString();
+            await setDoc(doc(db, collectionName, id), { ...data, updatedAt: new Date().toISOString() });
+            return true;
+        } catch(e) {
+            console.error("Error Firebase:", e);
+            return false;
+        }
+    },
+    
+    async _deleteFromFirebase(collectionName, id) {
+        if (!db) return false;
+        try {
+            const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+            await deleteDoc(doc(db, collectionName, id));
+            return true;
+        } catch(e) {
+            console.error("Error Firebase:", e);
+            return false;
+        }
+    },
+    
+    // ===== FALLBACK: localStorage =====
+    _getLocal(key) {
+        return JSON.parse(localStorage.getItem(key)) || null;
+    },
+    
+    _setLocal(key, data) {
+        localStorage.setItem(key, JSON.stringify(data));
+    },
+    
+    // ===== EMPRESA =====
+    async getEmpresa() {
+        if (db) {
+            const data = await this._getFromFirebase("empresa");
+            if (data && data.length > 0) return data[0];
+        }
+        return this._getLocal(this.EMPRESA_KEY);
+    },
+    
+    async saveEmpresa(empresa) {
         empresa.updatedAt = new Date().toISOString();
-        localStorage.setItem(this.EMPRESA_KEY, JSON.stringify(empresa));
+        if (db) {
+            await this._saveToFirebase("empresa", empresa, "rut");
+        }
+        this._setLocal(this.EMPRESA_KEY, empresa);
         return empresa;
     },
     
     // ===== CLIENTES =====
-    getClientes() {
-        return JSON.parse(localStorage.getItem(this.CLIENTES_KEY)) || [];
+    async getClientes() {
+        if (db) {
+            const data = await this._getFromFirebase("clientes");
+            if (data) return data;
+        }
+        return this._getLocal(this.CLIENTES_KEY) || [];
     },
     
-    saveCliente(cliente) {
-        const clientes = this.getClientes();
-        const existente = clientes.findIndex(c => c.rut === cliente.rut);
+    async saveCliente(cliente) {
+        cliente.updatedAt = new Date().toISOString();
+        if (!cliente.id) cliente.id = Date.now().toString();
         
+        if (db) {
+            await this._saveToFirebase("clientes", cliente, "rut");
+        }
+        
+        // También guardar en localStorage como backup
+        const clientes = await this.getClientes();
+        const existente = clientes.findIndex(c => c.rut === cliente.rut);
         if (existente >= 0) {
-            clientes[existente] = { ...cliente, updatedAt: new Date().toISOString() };
+            clientes[existente] = cliente;
         } else {
-            cliente.id = Date.now();
             cliente.createdAt = new Date().toISOString();
             clientes.push(cliente);
         }
-        
-        localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(clientes));
+        this._setLocal(this.CLIENTES_KEY, clientes);
         return cliente;
     },
     
-    deleteCliente(rut) {
-        const clientes = this.getClientes().filter(c => c.rut !== rut);
-        localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(clientes));
+    async deleteCliente(rut) {
+        if (db) {
+            await this._deleteFromFirebase("clientes", rut);
+        }
+        const clientes = (await this.getClientes()).filter(c => c.rut !== rut);
+        this._setLocal(this.CLIENTES_KEY, clientes);
     },
     
-    getClienteByRut(rut) {
-        return this.getClientes().find(c => c.rut === rut);
+    async getClienteByRut(rut) {
+        const clientes = await this.getClientes();
+        return clientes.find(c => c.rut === rut);
     },
     
     // ===== PRODUCTOS =====
-    getProductos() {
-        return JSON.parse(localStorage.getItem(this.PRODUCTOS_KEY)) || [];
+    async getProductos() {
+        if (db) {
+            const data = await this._getFromFirebase("productos");
+            if (data) return data;
+        }
+        return this._getLocal(this.PRODUCTOS_KEY) || [];
     },
     
-    saveProducto(producto) {
-        const productos = this.getProductos();
+    async saveProducto(producto) {
+        producto.updatedAt = new Date().toISOString();
+        if (!producto.id) producto.id = Date.now().toString();
+        
+        if (db) {
+            await this._saveToFirebase("productos", producto, "nombre");
+        }
+        
+        const productos = await this.getProductos();
         const nombreLower = producto.nombre.toLowerCase();
         const existente = productos.findIndex(p => p.nombre.toLowerCase() === nombreLower);
-        
         if (existente >= 0) {
-            productos[existente] = { ...producto, updatedAt: new Date().toISOString() };
+            productos[existente] = producto;
         } else {
-            producto.id = Date.now();
             producto.createdAt = new Date().toISOString();
             productos.push(producto);
         }
-        
-        localStorage.setItem(this.PRODUCTOS_KEY, JSON.stringify(productos));
+        this._setLocal(this.PRODUCTOS_KEY, productos);
         return producto;
     },
     
-    deleteProducto(nombre) {
-        const productos = this.getProductos().filter(p => p.nombre.toLowerCase() !== nombre.toLowerCase());
-        localStorage.setItem(this.PRODUCTOS_KEY, JSON.stringify(productos));
+    async deleteProducto(nombre) {
+        if (db) {
+            await this._deleteFromFirebase("productos", nombre);
+        }
+        const productos = (await this.getProductos()).filter(p => p.nombre.toLowerCase() !== nombre.toLowerCase());
+        this._setLocal(this.PRODUCTOS_KEY, productos);
     },
     
-    getProductoByNombre(nombre) {
-        return this.getProductos().find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
+    async getProductoByNombre(nombre) {
+        const productos = await this.getProductos();
+        return productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
     },
     
     // ===== UTILIDADES =====
-    buscarClientes(query) {
+    async buscarClientes(query) {
+        const clientes = await this.getClientes();
         const q = query.toLowerCase();
-        return this.getClientes().filter(c => 
+        return clientes.filter(c => 
             c.nombre.toLowerCase().includes(q) || 
             c.rut.includes(q)
         );
     },
     
-    buscarProductos(query) {
+    async buscarProductos(query) {
+        const productos = await this.getProductos();
         const q = query.toLowerCase();
-        return this.getProductos().filter(p => 
+        return productos.filter(p => 
             p.nombre.toLowerCase().includes(q)
         );
     },
     
     // Exportar datos
-    exportData() {
+    async exportData() {
         return {
-            empresa: this.getEmpresa(),
-            clientes: this.getClientes(),
-            productos: this.getProductos(),
+            empresa: await this.getEmpresa(),
+            clientes: await this.getClientes(),
+            productos: await this.getProductos(),
             exportedAt: new Date().toISOString()
         };
     },
     
     // Importar datos
-    importData(data) {
+    async importData(data) {
         if (data.empresa) {
-            localStorage.setItem(this.EMPRESA_KEY, JSON.stringify(data.empresa));
+            await this.saveEmpresa(data.empresa);
         }
-        if (data.clientes) {
-            localStorage.setItem(this.CLIENTES_KEY, JSON.stringify(data.clientes));
+        if (data.clientes && Array.isArray(data.clientes)) {
+            for (const cliente of data.clientes) {
+                await this.saveCliente(cliente);
+            }
         }
-        if (data.productos) {
-            localStorage.setItem(this.PRODUCTOS_KEY, JSON.stringify(data.productos));
+        if (data.productos && Array.isArray(data.productos)) {
+            for (const producto of data.productos) {
+                await this.saveProducto(producto);
+            }
         }
+    },
+    
+    // Verificar conexión Firebase
+    isFirebaseConfigured() {
+        return firebaseConfig.apiKey !== "TU_API_KEY";
     }
 };
+
+// Inicializar Firebase al cargar
+initFirebase();
 
 // Exportar para uso global
 window.DB = DB;

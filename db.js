@@ -2,12 +2,13 @@
 // Configuración de Firebase - REEMPLAZA con tu config
 
 const firebaseConfig = {
-    apiKey: "TU_API_KEY",
-    authDomain: "TU_PROYECTO.firebaseapp.com",
-    projectId: "TU_PROYECTO",
-    storageBucket: "TU_PROYECTO.appspot.com",
-    messagingSenderId: "TU_SENDER_ID",
-    appId: "TU_APP_ID"
+     apiKey: "AIzaSyCbs3N1ddPp3GL6dBmo4CcXdznNNrKyJjw",
+  authDomain: "cotizador-2b88d.firebaseapp.com",
+  projectId: "cotizador-2b88d",
+  storageBucket: "cotizador-2b88d.firebasestorage.app",
+  messagingSenderId: "753400496966",
+  appId: "1:753400496966:web:6c748d339632ea1f3e1b47",
+  measurementId: "G-1XXL93S1NQ"
 };
 
 // Inicializar Firebase (solo si está configurado)
@@ -46,6 +47,7 @@ const DB = {
     PRODUCTOS_KEY: "cotizador_productos",
     EMPRESA_KEY: "cotizador_empresa",
     PROYECTO_KEY: "cotizador_proyecto_actual",
+    COTIZACIONES_KEY: "cotizador_cotizaciones",
     
     // ===== FIREBASE: Métodos async =====
     async _getFromFirebase(collectionName) {
@@ -196,6 +198,35 @@ const DB = {
     async getProductoByNombre(nombre) {
         const productos = await this.getProductos();
         return productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
+    },
+    
+    // ===== COTIZACIONES =====
+    async getCotizaciones() {
+        if (db) {
+            const data = await this._getFromFirebase("cotizaciones");
+            if (data) return data;
+        }
+        return this._getLocal(this.COTIZACIONES_KEY) || [];
+    },
+    
+    async saveCotizacion(cotizacion) {
+        cotizacion.updatedAt = new Date().toISOString();
+        if (!cotizacion.id) cotizacion.id = "cot_" + cotizacion.folio;
+        
+        if (db) {
+            await this._saveToFirebase("cotizaciones", cotizacion, "folio");
+        }
+        
+        const cotizaciones = await this.getCotizaciones();
+        const existente = cotizaciones.findIndex(c => c.folio === cotizacion.folio);
+        if (existente >= 0) {
+            cotizaciones[existente] = cotizacion;
+        } else {
+            cotizacion.createdAt = new Date().toISOString();
+            cotizaciones.push(cotizacion);
+        }
+        this._setLocal(this.COTIZACIONES_KEY, cotizaciones);
+        return cotizacion;
     },
     
     // ===== UTILIDADES =====

@@ -82,6 +82,14 @@
 </div>
 
 <div class="card">
+<h3>Buscar Cotización</h3>
+<div class="grid">
+<input id="buscarCotizacion" placeholder="Buscar por cliente, folio o código..." oninput="buscarCotizacion(this.value)">
+</div>
+<div id="resultadosBusqueda" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div>
+</div>
+
+<div class="card">
 <h3>Productos</h3>
 
 <div class="grid">
@@ -117,6 +125,8 @@ Total Neto: $<span id="total">0</span>
 <button onclick="exportarDatos()">Exportar Datos</button>
 <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarDesdeArchivo()">
 <button onclick="document.getElementById('importFile').click()">Importar Datos</button>
+<button onclick="importarDesdeFirebase()">📥 Importar Cliente</button>
+<button onclick="importarProductosDesdeFirebase()">📦 Importar Producto</button>
 
 </div>
 

@@ -692,3 +692,163 @@ async function importarDesdeArchivo() {
     // Reset input
     input.value = "";
 }
+
+// ===== IMPORTAR DESDE FIREBASE =====
+async function importarDesdeFirebase() {
+    try {
+        // Cargar empresa
+        const empresa = await DB.getEmpresa();
+        if (empresa) {
+            document.getElementById("empresaNombre").value = empresa.nombre || "";
+            document.getElementById("empresaRut").value = empresa.rut || "";
+            document.getElementById("empresaDireccion").value = empresa.direccion || "";
+            document.getElementById("empresaTelefono").value = empresa.telefono || "";
+        }
+        
+        // Mostrar clientes disponibles
+        const clientes = await DB.getClientes();
+        if (clientes.length === 0) {
+            alert("No hay clientes en Firebase. Genera una cotización primero.");
+            return;
+        }
+        
+        let mensaje = "Clientes guardados en Firebase:\n\n";
+        clientes.forEach((c, i) => {
+            mensaje += `${i + 1}. ${c.nombre} (${c.rut})\n`;
+        });
+        mensaje += "\nIngresa el número para cargar:";
+        
+        const opcion = prompt(mensaje);
+        if (!opcion) return;
+        
+        const idx = parseInt(opcion) - 1;
+        if (idx >= 0 && idx < clientes.length) {
+            const c = clientes[idx];
+            document.getElementById("clienteNombre").value = c.nombre;
+            document.getElementById("clienteRut").value = c.rut;
+            document.getElementById("clienteDireccion").value = c.direccion || "";
+            document.getElementById("clienteCorreo").value = c.correo || "";
+            alert("Cliente cargado: " + c.nombre);
+        } else if (!isNaN(idx)) {
+            alert("Número inválido");
+        }
+    } catch(e) {
+        alert("Error al importar desde Firebase: " + e.message);
+    }
+}
+
+// ===== IMPORTAR PRODUCTOS DESDE FIREBASE =====
+async function importarProductosDesdeFirebase() {
+    try {
+        const productos = await DB.getProductos();
+        if (productos.length === 0) {
+            alert("No hay productos en Firebase. Genera una cotización primero.");
+            return;
+        }
+        
+        let mensaje = "Productos guardados en Firebase:\n\n";
+        productos.forEach((p, i) => {
+            mensaje += `${i + 1}. ${p.nombre} - $${formatoCLP(p.precio || 0)}\n`;
+        });
+        mensaje += "\nIngresa el número para agregar a la cotización:";
+        
+        const opcion = prompt(mensaje);
+        if (!opcion) return;
+        
+        const idx = parseInt(opcion) - 1;
+        if (idx >= 0 && idx < productos.length) {
+            const p = productos[idx];
+            document.getElementById("nombre").value = p.nombre;
+            document.getElementById("precio").value = formatoCLP(p.precio || 0);
+            alert("Producto cargado: " + p.nombre);
+        } else if (!isNaN(idx)) {
+            alert("Número inválido");
+        }
+    } catch(e) {
+        alert("Error al importar productos: " + e.message);
+    }
+}
+
+// ===== BUSCAR COTIZACIONES =====
+async function buscarCotizacion(query) {
+    const resultadosDiv = document.getElementById("resultadosBusqueda");
+    
+    if (!query || query.length < 2) {
+        resultadosDiv.innerHTML = "";
+        return;
+    }
+    
+    try {
+        const cotizaciones = await DB.getCotizaciones();
+        const q = query.toLowerCase();
+        
+        const filtradas = cotizaciones.filter(c => {
+            return (c.clienteNombre && c.clienteNombre.toLowerCase().includes(q)) ||
+                   (c.clienteRut && c.clienteRut.toLowerCase().includes(q)) ||
+                   (c.proyectoCodigo && c.proyectoCodigo.toLowerCase().includes(q)) ||
+                   (c.proyectoNombre && c.proyectoNombre.toLowerCase().includes(q)) ||
+                   (c.folio && String(c.folio).includes(q));
+        });
+        
+        if (filtradas.length === 0) {
+            resultadosDiv.innerHTML = "<p style='color:#666;'>No se encontraron cotizaciones</p>";
+            return;
+        }
+        
+        let html = "<table style='width:100%; font-size:12px;'><thead><tr><th>Folio</th><th>Cliente</th><th>Proyecto</th><th>Total</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>";
+        
+        filtradas.forEach(c => {
+            const fecha = c.fecha ? new Date(c.fecha).toLocaleDateString('es-CL') : '-';
+            html += `
+            <tr>
+                <td>${sanitizarHTML(String(c.folio || '-'))}</td>
+                <td>${sanitizarHTML(c.clienteNombre || '-')}</td>
+                <td>${sanitizarHTML(c.proyectoNombre || '-')}</td>
+                <td>$${formatoCLP(c.total || 0)}</td>
+                <td>${sanitizarHTML(fecha)}</td>
+                <td><button onclick="cargarCotizacion('${sanitizarHTML(String(c.folio))}')">Cargar</button></td>
+            </tr>`;
+        });
+        
+        html += "</tbody></table>";
+        resultadosDiv.innerHTML = html;
+    } catch(e) {
+        console.error("Error en búsqueda:", e);
+        resultadosDiv.innerHTML = "<p style='color:red;'>Error al buscar</p>";
+    }
+}
+
+// ===== CARGAR COTIZACIÓN DESDE FIREBASE =====
+async function cargarCotizacion(folio) {
+    try {
+        const cotizaciones = await DB.getCotizaciones();
+        const cotizacion = cotizaciones.find(c => c.folio == folio);
+        
+        if (!cotizacion) {
+            alert("Cotización no encontrada");
+            return;
+        }
+        
+        // Cargar datos en el formulario
+        document.getElementById("clienteNombre").value = cotizacion.clienteNombre || "";
+        document.getElementById("clienteRut").value = cotizacion.clienteRut || "";
+        document.getElementById("proyectoNombre").value = cotizacion.proyectoNombre || "";
+        document.getElementById("proyectoCodigo").value = cotizacion.proyectoCodigo || "";
+        
+        // Cargar productos
+        if (cotizacion.productos && Array.isArray(cotizacion.productos)) {
+            productos = cotizacion.productos.map(p => ({
+                n: p.n,
+                c: p.c,
+                p: p.p,
+                sub: p.sub
+            }));
+            render();
+        }
+        
+        document.getElementById("resultadosBusqueda").innerHTML = "";
+        alert("Cotización cargada: Folio " + folio);
+    } catch(e) {
+        alert("Error al cargar cotización: " + e.message);
+    }
+}

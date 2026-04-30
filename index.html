@@ -34,9 +34,16 @@
 
 <div class="container">
 
+<!-- Encabezado con Logo y Título -->
+<div class="header-section">
+    <img id="logoPreview" src="" alt="Logo" style="display:none; max-height:80px;">
+    <div class="header-text">
+        <h1>Cotización</h1>
+    </div>
+</div>
+
 <!-- Logo -->
 <div class="logo-section">
-    <img id="logoPreview" src="" alt="Logo" style="display:none; max-height:80px; margin-bottom:10px;">
     <input type="file" id="logoInput" accept="image/*" onchange="cargarLogo()">
     <button onclick="guardarLogo()">Guardar Logo</button>
     <button onclick="borrarLogo()">Borrar</button>

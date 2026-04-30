@@ -636,9 +636,10 @@ function guardarLogo() {
 
 function cargarLogoGuardado() {
     const logo = localStorage.getItem("cotizador_logo");
+    const logoPreview = document.getElementById("logoPreview");
     if (logo) {
-        document.getElementById("logoPreview").src = logo;
-        document.getElementById("logoPreview").style.display = "block";
+        logoPreview.src = logo;
+        logoPreview.style.display = "block";
     }
 }
 

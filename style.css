@@ -19,6 +19,30 @@ body{
     text-align:center;
 }
 
+/* Header con logo y título */
+.header-section{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    background:linear-gradient(135deg, #2563eb, #1d4ed8);
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+    color:white;
+}
+
+.header-section img{
+    max-height:80px;
+    border-radius:8px;
+    background:white;
+    padding:5px;
+}
+
+.header-text h1{
+    margin:0;
+    font-size:2.5rem;
+}
+
 .card{
     background:white;
     padding:20px;

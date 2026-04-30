@@ -652,17 +652,55 @@ function borrarLogo() {
 
 // ===== EXPORTAR/IMPORTAR DATOS =====
 async function exportarDatos() {
-    const datos = await DB.exportData();
-    
-    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "cotizador_backup_" + new Date().toISOString().split("T")[0] + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    alert("Datos exportados. Sube este archivo a GitHub para respaldarlos.");
+    try {
+        // 1. Obtener todos los datos
+        const datos = await DB.exportData();
+        
+        // 2. Exportar archivo JSON (backup local)
+        const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "cotizador_backup_" + new Date().toISOString().split("T")[0] + ".json";
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        // 3. Sincronizar con Firebase (exportar = subir a la nube)
+        let sincronizados = 0;
+        
+        // Subir empresa
+        if (datos.empresa) {
+            await DB.saveEmpresa(datos.empresa);
+            sincronizados++;
+        }
+        
+        // Subir clientes
+        if (datos.clientes && Array.isArray(datos.clientes)) {
+            for (const cliente of datos.clientes) {
+                await DB.saveCliente(cliente);
+            }
+            sincronizados += datos.clientes.length;
+        }
+        
+        // Subir productos
+        if (datos.productos && Array.isArray(datos.productos)) {
+            for (const producto of datos.productos) {
+                await DB.saveProducto(producto);
+            }
+            sincronizados += datos.productos.length;
+        }
+        
+        // Subir cotizaciones
+        const cotizaciones = await DB.getCotizaciones();
+        for (const cotizacion of cotizaciones) {
+            await DB.saveCotizacion(cotizacion);
+        }
+        
+        alert(`✅ Datos exportados y subidos a Firebase.\n\n📄 Archivo JSON descargado.\n☁️ ${sincronizados} elementos sincronizados en la nube.`);
+    } catch(e) {
+        alert("Error al exportar: " + e.message);
+        console.error(e);
+    }
 }
 
 async function importarDesdeArchivo() {

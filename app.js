@@ -41,11 +41,16 @@ function validarRut(rut) {
 }
 
 function formatearRut(input) {
+    // Obtener valor sin puntos para procesar
     let rut = input.value.replace(/[^0-9kK]/g, '');
+    
     if (rut.length > 1) {
         let cuerpo = rut.slice(0, -1);
         let dv = rut.slice(-1);
-        cuerpo = cuerpo.replace(/(\d)(?=(\d))/g, '$1.');
+        
+        // Formatear cuerpo con puntos (solo dígitos)
+        cuerpo = cuerpo.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+        
         input.value = cuerpo + '-' + dv;
     } else {
         input.value = rut;

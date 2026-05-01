@@ -187,8 +187,24 @@ function render(){
 // ===== PDF =====
 function generarPDF(){
 
-    let doc = new jsPDF();
+  const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
     let pageWidth = doc.internal.pageSize.getWidth();
+
+    // 🔹 TÍTULO
+    doc.setFontSize(18);
+    doc.text("COTIZACIÓN", pageWidth - 10, 20, { align: "right" });
+
+    // 🔹 LOGO
+    const logo = localStorage.getItem("cotizador_logo");
+    if (logo) {
+        doc.addImage(logo, undefined, 10, 10, 40, 20);
+    }
+
+    //LÍNEA 
+doc.setDrawColor(200);
+doc.line(10, 30, pageWidth - 10, 30);
 
     // Datos
     let empresaNombre = document.getElementById("empresaNombre").value;
@@ -204,7 +220,7 @@ function generarPDF(){
     let proyectoNombre = document.getElementById("proyectoNombre").value;
     let proyectoCodigo = document.getElementById("proyectoCodigo").value;
 
-    let y = 20;
+    let y = 40;
     let margen = 15;
     let anchoUtil = pageWidth - (margen * 2);
 
